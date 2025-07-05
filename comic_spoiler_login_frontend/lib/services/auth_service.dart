@@ -3,35 +3,53 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 
 class AuthService {
-  final String baseUrl = 'http://192.168.0.154:5000'; // or localhost
+  final String baseUrl = 'http://192.168.0.154:5000'; // ✅ your Flask backend
 
   String? _cookie;
 
-  Future<bool> login(String email, String password) async {
+  Future<Map<String, dynamic>> login(String username, String password) async {
     final response = await http.post(
       Uri.parse('$baseUrl/login'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'email': email, 'password': password}),
+      body: jsonEncode({'username': username, 'password': password}),
     );
 
     if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
       final rawCookie = response.headers['set-cookie'];
       if (rawCookie != null) {
         _cookie = rawCookie.split(';').first;
       }
-      return true;
+      return {
+        'success': true,
+        'username': data['username'],
+        'email': data['email'],
+      };
     } else {
-      return false;
+      return {'success': false};
     }
   }
 
-  Future<bool> signup(String email, String password) async {
+  /// ✅ This version returns both the status code and parsed JSON body.
+  Future<Map<String, dynamic>> signup(
+    String username,
+    String email,
+    String password,
+  ) async {
     final response = await http.post(
       Uri.parse('$baseUrl/signup'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'email': email, 'password': password}),
+      body: jsonEncode({
+        'username': username,
+        'email': email,
+        'password': password,
+      }),
     );
-    return response.statusCode == 200;
+
+    /// ✅ Always parse JSON to return the actual error message if any.
+    final decodedBody = jsonDecode(response.body);
+
+    return {'statusCode': response.statusCode, 'body': decodedBody};
   }
 
   Future<Map<String, dynamic>> analyzeImage(File image) async {
@@ -63,7 +81,7 @@ class AuthService {
       headers: {if (_cookie != null) 'cookie': _cookie!},
     );
     if (response.statusCode == 200) {
-      _cookie = null; // Clear local cookie too
+      _cookie = null; // Clear cookie
       return true;
     } else {
       return false;

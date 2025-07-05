@@ -7,6 +7,8 @@ import sqlite3
 from werkzeug.utils import secure_filename
 from argon2 import PasswordHasher
 
+import re
+
 app = Flask(__name__)
 CORS(app)
 
@@ -29,6 +31,7 @@ def create_users_table():
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL,
             email TEXT UNIQUE NOT NULL,
             password TEXT NOT NULL
         )
@@ -37,6 +40,21 @@ def create_users_table():
     conn.close()
 
 create_users_table()
+
+# password validation
+
+def is_valid_password(password):
+    if len(password) < 8:
+        return False
+    if not re.search(r"[A-Z]", password):
+        return False
+    if not re.search(r"[a-z]", password):
+        return False
+    if not re.search(r"[0-9]", password):
+        return False
+    if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):
+        return False
+    return True
 
 # === Routes ===
 
@@ -47,19 +65,27 @@ def home():
 @app.route('/signup', methods=['POST'])
 def signup():
     data = request.json
+    username = data.get('username')
     email = data.get('email')
     password = data.get('password')
 
-    if not email or not password:
-        return jsonify({'error': 'Email and password required'}), 400
+    if not username or not email or not password:
+        return jsonify({'error': 'Username, email and password required'}), 400
+
+    if not is_valid_password(password):
+        return jsonify({
+            'error': 'Password must be at least 8 chars, include uppercase, lowercase, number, and special char.'
+        }), 400
 
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
     try:
-        # hashed password
         hashed_password = ph.hash(password)
-        cursor.execute('INSERT INTO users (email, password) VALUES (?, ?)', (email, hashed_password))
+        cursor.execute(
+            'INSERT INTO users (username, email, password) VALUES (?, ?, ?)',
+            (username, email, hashed_password)
+        )
         conn.commit()
         return jsonify({'message': 'Signup successful'}), 200
     except sqlite3.IntegrityError:
@@ -67,40 +93,40 @@ def signup():
     finally:
         conn.close()
 
+
 @app.route('/login', methods=['POST'])
 def login():
     data = request.json
-    email = data.get('email')
+    username = data.get('username')
     password = data.get('password')
 
-    if not email or not password:
-        return jsonify({'error': 'Email and password required'}), 400
+    if not username or not password:
+        return jsonify({'error': 'Username and password required'}), 400
 
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
-    cursor.execute('SELECT password FROM users WHERE email = ?', (email,))
+    cursor.execute('SELECT email, password FROM users WHERE username = ?', (username,))
     user = cursor.fetchone()
     conn.close()
 
     if not user:
         return jsonify({'error': 'Invalid credentials'}), 401
-    
-    stored_hash = user[0]
 
-    # if user:
-    #     session['user'] = email  # Mark session as logged in
-    #     return jsonify({'message': 'Login successful'}), 200
-    # else:
-    #     return jsonify({'error': 'Invalid credentials'}), 401
+    email, stored_hash = user
 
     try:
         ph.verify(stored_hash, password)
     except Exception:
         return jsonify({'error': 'Invalid credentials'}), 401
-    
-    session['user'] = email
-    return jsonify({'message': 'Login successful'}), 200
+
+    session['user'] = username
+    return jsonify({
+        'message': 'Login successful',
+        'username': username,
+        'email': email
+    }), 200
+
 
 
 

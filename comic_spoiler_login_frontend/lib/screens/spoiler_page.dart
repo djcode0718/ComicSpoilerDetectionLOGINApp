@@ -6,8 +6,15 @@ import '../services/auth_service.dart';
 
 class SpoilerPage extends StatefulWidget {
   final AuthService authService;
+  final String userEmail;
+  final String username;
 
-  const SpoilerPage({super.key, required this.authService});
+  const SpoilerPage({
+    super.key,
+    required this.authService,
+    required this.userEmail,
+    required this.username,
+  });
 
   @override
   State<SpoilerPage> createState() => _SpoilerPageState();
@@ -91,7 +98,19 @@ class _SpoilerPageState extends State<SpoilerPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Comic Spoiler Detector')),
+      appBar: AppBar(
+        title: const Text('Comic Spoiler Detector'),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(30),
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 8.0),
+            child: Text(
+              'Logged in as: ${widget.username} | ${widget.userEmail}',
+              style: const TextStyle(fontSize: 14, color: Colors.black87),
+            ),
+          ),
+        ),
+      ),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),

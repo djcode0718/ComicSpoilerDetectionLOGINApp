@@ -12,6 +12,7 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   final AuthService _authService = AuthService();
+  final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _isLoading = false;
@@ -21,8 +22,8 @@ class _LoginPageState extends State<LoginPage> {
       _isLoading = true;
     });
 
-    bool success = await _authService.login(
-      _emailController.text.trim(),
+    final result = await _authService.login(
+      _usernameController.text.trim(),
       _passwordController.text.trim(),
     );
 
@@ -30,17 +31,25 @@ class _LoginPageState extends State<LoginPage> {
       _isLoading = false;
     });
 
-    if (success) {
+    if (result['success']) {
+      final username = result['username'];
+      final userEmail = result['email'];
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (_) => SpoilerPage(authService: _authService),
+          builder: (_) => SpoilerPage(
+            authService: _authService,
+            // userEmail: _emailController.text,
+            // username: _usernameController.text,
+            userEmail: userEmail,
+            username: username,
+          ),
         ),
       );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('❌ Login failed')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('❌ Login failed')));
     }
   }
 
@@ -53,9 +62,13 @@ class _LoginPageState extends State<LoginPage> {
         child: Column(
           children: [
             TextField(
-              controller: _emailController,
-              decoration: const InputDecoration(labelText: 'Email'),
+              controller: _usernameController,
+              decoration: InputDecoration(labelText: 'Username'),
             ),
+            // TextField(
+            //   controller: _emailController,
+            //   decoration: const InputDecoration(labelText: 'Email'),
+            // ),
             TextField(
               controller: _passwordController,
               decoration: const InputDecoration(labelText: 'Password'),
@@ -64,10 +77,7 @@ class _LoginPageState extends State<LoginPage> {
             const SizedBox(height: 20),
             _isLoading
                 ? const CircularProgressIndicator()
-                : ElevatedButton(
-                    onPressed: _login,
-                    child: const Text('Login'),
-                  ),
+                : ElevatedButton(onPressed: _login, child: const Text('Login')),
             TextButton(
               onPressed: () {
                 Navigator.push(
@@ -76,7 +86,7 @@ class _LoginPageState extends State<LoginPage> {
                 );
               },
               child: const Text('Don\'t have an account? Sign up'),
-            )
+            ),
           ],
         ),
       ),
