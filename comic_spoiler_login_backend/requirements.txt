@@ -1,0 +1,13 @@
+flask
+opencv-python
+numpy
+pytesseract
+ultralytics
+joblib
+xgboost
+deepface
+scikit-learn
+pandas
+transformers
+tensorflow-macos==2.14.0
+tensorflow-metal==1.1.0
