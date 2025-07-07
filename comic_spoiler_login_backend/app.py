@@ -1,16 +1,28 @@
+import traceback
 import uuid
 from flask import Flask, request, jsonify, session
 from flask_cors import CORS
 from m_spoiler_detector import run_pipeline
 import os
-import sqlite3
+# import sqlite3
+from psycopg2 import IntegrityError
 from werkzeug.utils import secure_filename
 from argon2 import PasswordHasher
 from dotenv import load_dotenv
 import re
+import psycopg2
 
 import logging
+
 logging.basicConfig(level=logging.INFO)
+
+from pathlib import Path
+
+dotenv_path = Path(__file__).parent / ".env"
+print("Loading env from:", dotenv_path)
+load_dotenv(dotenv_path, override=True)
+
+print("DB_HOST:", os.getenv("DB_HOST"))
 
 app = Flask(__name__)
 CORS(app)
@@ -18,7 +30,11 @@ CORS(app)
 # password hasher argon2
 ph = PasswordHasher()
 
+print("Current working dir:", os.getcwd())
+print("Files in cwd:", os.listdir())
+
 load_dotenv()
+print("DB_HOST:", os.getenv("DB_HOST"))
 
 # app.secret_key = 'the-hardest-secret-key-to-crack'  # Replace with something strong in production
 app.secret_key = os.getenv('SECRET_KEY')  # Replace with something strong in production
@@ -28,22 +44,35 @@ UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'uploads')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-# === SQLite setup ===
-# DB_PATH = os.path.join(os.path.dirname(__file__), 'users.db')
-DB_PATH = os.getenv('DB_PATH')
+# Get config from .env
+DB_NAME = os.getenv('DB_NAME')
+DB_USER = os.getenv('DB_USER')
+DB_PASSWORD = os.getenv('DB_PASSWORD')
+DB_HOST = os.getenv('DB_HOST')
+DB_PORT = os.getenv('DB_PORT')
+
+def get_db_connection():
+    return psycopg2.connect(
+        dbname=DB_NAME,
+        user=DB_USER,
+        password=DB_PASSWORD,
+        host=DB_HOST,
+        port=DB_PORT
+    )
 
 def create_users_table():
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             username TEXT NOT NULL,
             email TEXT UNIQUE NOT NULL,
             password TEXT NOT NULL
         )
     ''')
     conn.commit()
+    cursor.close()
     conn.close()
 
 create_users_table()
@@ -87,18 +116,18 @@ def signup():
             'error': 'Password must be at least 8 chars, include uppercase, lowercase, number, and special char.'
         }), 400
 
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cursor = conn.cursor()
 
     try:
         hashed_password = ph.hash(password)
         cursor.execute(
-            'INSERT INTO users (username, email, password) VALUES (?, ?, ?)',
+            'INSERT INTO users (username, email, password) VALUES (%s, %s, %s)',
             (username, email, hashed_password)
         )
         conn.commit()
         return jsonify({'message': 'Signup successful'}), 200
-    except sqlite3.IntegrityError:
+    except IntegrityError:
         logging.info(f"User already exists.")
         return jsonify({'error': 'User already exists'}), 409
     finally:
@@ -117,10 +146,10 @@ def login():
         logging.info(f"Login failed: missing username or password")
         return jsonify({'error': 'Username and password required'}), 400
 
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cursor = conn.cursor()
 
-    cursor.execute('SELECT email, password FROM users WHERE username = ?', (username,))
+    cursor.execute('SELECT email, password FROM users WHERE username = %s', (username,))
     user = cursor.fetchone()
     conn.close()
 
@@ -191,6 +220,7 @@ def analyze_image():
         })
     except Exception as e:
         logging.error(f"Analyze failed for user.")
+        logging.error(traceback.format_exc())
         return jsonify({"error": str(e)}), 500
     finally:
         # Optional: Clean up uploaded file

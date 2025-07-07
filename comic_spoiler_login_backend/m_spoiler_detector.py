@@ -9,7 +9,8 @@ from sklearn.cluster import DBSCAN
 from scipy.spatial.distance import cosine
 
 # OCR setup
-pytesseract.pytesseract.tesseract_cmd = r"/opt/homebrew/bin/tesseract"
+# pytesseract.pytesseract.tesseract_cmd = r"/opt/homebrew/bin/tesseract"
+pytesseract.pytesseract.tesseract_cmd = '/usr/bin/tesseract'
 
 # Load all models
 caption_generator = pipeline("summarization", model="facebook/bart-large-cnn")

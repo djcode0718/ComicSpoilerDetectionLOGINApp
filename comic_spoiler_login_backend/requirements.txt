@@ -1,6 +1,5 @@
-flask
 opencv-python
-numpy
+numpy==1.26.4
 pytesseract
 ultralytics
 joblib
@@ -9,5 +8,9 @@ deepface
 scikit-learn
 pandas
 transformers
-tensorflow-macos==2.14.0
-tensorflow-metal==1.1.0
+tensorflow==2.14.0
+flask
+flask-cors
+psycopg2-binary
+argon2-cffi
+python-dotenv
