@@ -2,6 +2,15 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
-venv/
 *.log
+*.sqlite3
+*.db
+venv/
 .env
+.git/
+.gitignore
+.dockerignore
+.DS_Store
+.vscode/
+tests/
+uploads/  # if you don’t need to copy test uploads
